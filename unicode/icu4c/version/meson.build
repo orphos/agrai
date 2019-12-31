@@ -1,3 +1,5 @@
 project('show-icu-verion', 'c')
 
-executable('show-icu-version', 'show-icu-version.c')
+icu = dependency('icu-uc')
+
+executable('show-icu-version', 'show-icu-version.c', dependencies: icu)
