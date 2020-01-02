@@ -1,5 +1,5 @@
 # Agrai
-Agrai is a collection repository of various experimental code.
+Agrai is a collection repository of various example/experimental/incubational code.
 
 # Why not Gist, or GitLab Snippets or something like that?
 - Gist does not have directories;
