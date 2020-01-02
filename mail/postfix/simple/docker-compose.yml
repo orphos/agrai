@@ -1,0 +1,26 @@
+version: '3'
+services:
+
+  postfix:
+    restart: always
+    build: .
+    env_file: .env
+    networks:
+      - external_network
+      - internal_network
+    volumes:
+      - ./data:/data
+  peer:
+    build: peer/
+    networks:
+      - internal_network
+    volumes:
+      - ./data:/data
+
+networks:
+  external_network:
+  internal_network:
+    internal: true
+    ipam:
+      config:
+        - subnet: 192.168.210.0/24
