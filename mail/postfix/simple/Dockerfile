@@ -25,7 +25,6 @@ RUN {\
  echo 'mynetworks = 127.0.0.0/8, 192.168.0.0/16', peer; \
  echo 'debug_peer_list = 127.0.0.0/8, 192.168.0.0/16, peer,  gmail.com'; \
  echo 'myhostname = localhost'; \
- echo 'mydomain = example.org'; \
  echo 'smtpd_banner = $myhostname ESMTP unknown'; \
  echo 'message_size_limit = 10240000'; \
  echo 'smtpd_sasl_auth_enable = no'; \
@@ -41,6 +40,7 @@ RUN { \
   echo 'test -f /etc/sasl2/sasldb2 && chown postfix:postfix /etc/sasl2/sasldb2'; \
   echo 'openssl req -new -sha384 -key "/cert/key.pem" -subj "/CN=${HOST_NAME}" -out "/cert/csr.pem"'; \
   echo 'openssl x509 -req -days 36500 -in "/cert/csr.pem" -signkey "/cert/key.pem" -out "/cert/cert.pem" &>/dev/null'; \
+  echo 'echo "mydomain = ${DOMAIN_NAME}" >> /etc/postfix/main.cf'; \
   echo 'postfix start'; \
   echo 'rsyslogd -n'; \
 } > /root/entrypoint.sh; \
