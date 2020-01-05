@@ -30,6 +30,8 @@ RUN {\
  echo 'smtpd_sasl_auth_enable = no'; \
 } >> /etc/postfix/main.cf
 
+RUN sed -i 's/^\(module(load="imklog")\)$/#\1/' /etc/rsyslog.conf; # disable logging kernel messages
+
 RUN { \
   echo '#!/bin/sh'; \
   echo 'cp /usr/share/zoneinfo/${TIMEZONE} /etc/localtime'; \
