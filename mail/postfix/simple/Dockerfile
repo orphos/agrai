@@ -1,6 +1,6 @@
 FROM alpine:3.11
 RUN apk update
-RUN apk add postfix mailx rsyslog openssl ca-certificates cyrus-sasl tzdata
+RUN apk add postfix mailx rsyslog openssl ca-certificates cyrus-sasl tzdata opendkim opendkim-utils
 RUN mkdir /cert; \
   openssl genrsa -aes256 -passout pass:dummy -out "/cert/key.pass.pem" 2048; \
   openssl rsa -passin pass:dummy -in "/cert/key.pass.pem" -out "/cert/key.pem"; \
@@ -28,9 +28,26 @@ RUN {\
  echo 'smtpd_banner = $myhostname ESMTP unknown'; \
  echo 'message_size_limit = 10240000'; \
  echo 'smtpd_sasl_auth_enable = no'; \
+ echo 'smtpd_milters = inet:127.0.0.1:8891'; \
+ echo 'non_smtpd_milters = inet:127.0.0.1:8891'; \
+ echo 'milter_default_action = accept'; \
 } >> /etc/postfix/main.cf
 
 RUN sed -i 's/^\(module(load="imklog")\)$/#\1/' /etc/rsyslog.conf; # disable logging kernel messages
+
+RUN {\
+  echo 'ExternalIgnoreList refile:/etc/opendkim/TrustedHosts'; \
+  echo 'InternalHosts refile:/etc/opendkim/TrustedHosts'; \
+} >> /etc/opendkim/opendkim.conf
+
+RUN {\
+  echo '127.0.0.1'; \
+  echo '::1'; \
+  echo 'localhost'; \
+  echo '192.168.0.0/16'; \
+} >> /etc/opendkim/TrustedHosts
+
+RUN mkdir -p /run/opendkim
 
 RUN { \
   echo '#!/bin/sh'; \
@@ -43,6 +60,17 @@ RUN { \
   echo 'openssl req -new -sha384 -key "/cert/key.pem" -subj "/CN=${HOST_NAME}" -out "/cert/csr.pem"'; \
   echo 'openssl x509 -req -days 36500 -in "/cert/csr.pem" -signkey "/cert/key.pem" -out "/cert/cert.pem" &>/dev/null'; \
   echo 'echo "mydomain = ${DOMAIN_NAME}" >> /etc/postfix/main.cf'; \
+  echo 'mkdir -p /opendkim/${DOMAIN_NAME}'; \
+  echo 'if test ! -f "/opendkim/${DOMAIN_NAME}/default.private"; then'; \
+  echo '  chmod u=rwX,g=rX,o= /opendkim/${DOMAIN_NAME}'; \
+  echo '  opendkim-genkey -D /opendkim/${DOMAIN_NAME}/ -d ${DOMAIN_NAME} -s default'; \
+  echo 'fi'; \
+  echo 'chmod ug=rX,o= /opendkim/${DOMAIN_NAME}'; \
+  echo '_dkim_conf=/etc/opendkim/opendkim.conf'; \
+  echo 'sed -i "s/^\(KeyFile\)\s.*/\1 \/opendkim\/${DOMAIN_NAME}\/default.private/" $_dkim_conf'; \
+  echo 'sed -i "s/^\(Domain\)\s.*/\1 ${DOMAIN_NAME}/" $_dkim_conf'; \
+  echo 'sed -i "s/^\(ReportAddress\)\s.*/\1 ${OPENDKIM_REPORT_ADDRESS}/" $_dkim_conf'; \
+  echo 'opendkim -flx $_dkim_conf &'; \
   echo 'postfix start'; \
   echo 'rsyslogd -n'; \
 } > /root/entrypoint.sh; \
@@ -57,6 +85,8 @@ ENV MESSAGE_SIZE_LIMIT 10240000
 
 ENV AUTH_USER user
 ENV AUTH_PASSWORD password
+
+ENV OPENDKIM_REPORT_ADDRESS postmaster@example.org
 
 EXPOSE 25
 
