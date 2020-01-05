@@ -1,6 +1,6 @@
 FROM alpine:3.11
 RUN apk update
-RUN apk add postfix mailx rsyslog openssl ca-certificates cyrus-sasl tzdata opendkim opendkim-utils
+RUN apk add postfix mailx rsyslog openssl ca-certificates cyrus-sasl tzdata opendkim opendkim-utils supervisor
 RUN mkdir /cert; \
   openssl genrsa -aes256 -passout pass:dummy -out "/cert/key.pass.pem" 2048; \
   openssl rsa -passin pass:dummy -in "/cert/key.pass.pem" -out "/cert/key.pem"; \
@@ -49,6 +49,31 @@ RUN {\
 
 RUN mkdir -p /run/opendkim
 
+RUN mkdir /run/supervisor; \
+  sed -i 's/^\s*;*\s*\(nodaemon\)\s*=.*/\1=true/' /etc/supervisord.conf; \
+  sed -i 's/^\s*;*\s*\(user\)\s*=\s*chrism/\1=root/' /etc/supervisord.conf; \
+  sed -i '/^\[unix_http_server\]$/a username=dummy\npassword=dummy/' /etc/supervisord.conf; \
+  sed -i '/^\[supervisorctl\]$/a username=dummy\npassword=dummy/' /etc/supervisord.conf; \
+  mkdir -p /etc/supervisor.d; \
+  { \
+    echo '[program:postfix]'; \
+    echo 'command=/usr/sbin/postfix -c /etc/postfix start-fg'; \
+    echo 'priority=4'; \
+    echo 'startsecs=0'; \
+  } > /etc/supervisor.d/postfix.ini; \
+  { \
+    echo '[program:opendkim]'; \
+    echo 'command=/usr/sbin/opendkim -flx /etc/opendkim/opendkim.conf'; \
+    echo 'priority=3'; \
+    echo 'startsecs=0'; \
+  } > /etc/supervisor.d/opendkim.ini; \
+  { \
+    echo '[program:rsyslog]'; \
+    echo 'command=/usr/sbin/rsyslogd -n'; \
+    echo 'priority=2'; \
+    echo 'startsecs=0'; \
+  } > /etc/supervisor.d/rsyslog.ini
+
 RUN { \
   echo '#!/bin/sh'; \
   echo 'cp /usr/share/zoneinfo/${TIMEZONE} /etc/localtime'; \
@@ -70,9 +95,7 @@ RUN { \
   echo 'sed -i "s/^\(KeyFile\)\s.*/\1 \/opendkim\/${DOMAIN_NAME}\/default.private/" $_dkim_conf'; \
   echo 'sed -i "s/^\(Domain\)\s.*/\1 ${DOMAIN_NAME}/" $_dkim_conf'; \
   echo 'sed -i "s/^\(ReportAddress\)\s.*/\1 ${OPENDKIM_REPORT_ADDRESS}/" $_dkim_conf'; \
-  echo 'opendkim -flx $_dkim_conf &'; \
-  echo 'postfix start'; \
-  echo 'rsyslogd -n'; \
+  echo 'supervisord -c /etc/supervisord.conf'; \
 } > /root/entrypoint.sh; \
 chmod +x /root/entrypoint.sh
 
@@ -91,6 +114,4 @@ ENV OPENDKIM_REPORT_ADDRESS postmaster@example.org
 EXPOSE 25
 
 ENTRYPOINT ["/root/entrypoint.sh"]
-
-CMD ["sh", "-c", "tail -f /dev/null"]
 
