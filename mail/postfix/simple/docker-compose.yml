@@ -10,6 +10,7 @@ services:
       - internal_network
     volumes:
       - ./data:/data
+      - ./log:/var/log
   peer:
     build: peer/
     networks:
