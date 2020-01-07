@@ -41,7 +41,7 @@ resourceGenerators in Compile += Def.task {
     val linkDirs = Seq(jdk / "lib") ++ (if ((jre / "lib").exists) Some(jre / "lib") else None)
     val linkArgs = linkDirs.mkString("-L", ",-L", "") ++ ",-ljava"
     scala.sys.process.Process(
-      Seq("meson", "--reconfigure", "build", s"-Dinc_dirs=${incDirs.mkString(",")}", s"-Dlink_args=$linkArgs", "-Dlink_depends=libjava"),
+      Seq("meson", "build", s"-Dinc_dirs=${incDirs.mkString(",")}", s"-Dlink_args=$linkArgs", "-Dlink_depends=libjava"),
       Some(nativeDir)).!
     scala.sys.process.Process(Seq("ninja"), Some(nativeDir / "build")).!
     val Ext = """.*\.(?:so|dll|dylib)[.0-9]*""".r
