@@ -1,7 +1,10 @@
 #include <jni.h>
 #include <fenv.h>
 #include <math.h>
+
+#ifdef __amd64__
 #include <emmintrin.h>
+#endif
 
 static const unsigned int mxcsr_precision_mask = 1 << 5;
 
